@@ -1,20 +1,25 @@
 /*
-  SDL_Weather_80422_Library.ino - Example for using SDL_Weather_80422 Library
-  For Weather Sensor Assembly 80422.
-  Imported by Argent Data Systems
+  SDL_Weather_80422.cpp - Library for SwitchDoc Labs WeatherRack.
+  SparkFun Weather Station Meters
+  Argent Data Systems
   Created by SwitchDoc Labs July 27, 2014.
   Released into the public domain.
+  Version 1.1 - updated constants to suppport 3.3V
+  
+  Supports WeatherPiArduino Board www.switchdoc.com
 */
 #include <Wire.h>
 #include <Time.h>
 
 #include "SDL_Weather_80422.h"
 
+
+
 #define pinLED     13   // LED connected to digital pin 13
-#define pinAnem    18  // Anenometer connected to pin 18 - Int 5
-#define pinRain    2   
-#define intAnem    5
-#define intRain    0
+#define pinAnem    18  // Anenometer connected to pin 18 - Int 5 - Mega   / Uno pin 2
+#define pinRain    2  // Anenometer connected to pin 2 - Int 0 - Mega   / Uno Pin 3 
+#define intAnem    5  // int 0 (check for Uno)
+#define intRain    1  // int 1
 
 // for mega, have to use Port B - only Port B works.
 /*
@@ -45,7 +50,7 @@ void setup()
 
  Serial.println("-----------");
  Serial.println("WeatherArduino SDL_Weather_80422 Class Test");
- Serial.println("Version 1.0");
+ Serial.println("Version 1.1");
  Serial.println("-----------");
       
       

@@ -1,15 +1,23 @@
 /*
-  SDL_Weather_80422.cpp - Library for Weather Sensor Assembly 80422.
-  SparkFun Weather Station Meters - https://www.sparkfun.com/products/8942
-  Imported by Argent Data Systems
+  SDL_Weather_80422.cpp - Library for SwitchDoc Labs WeatherRack.
+   SparkFun Weather Station Meters
+  Argent Data Systems
   Created by SwitchDoc Labs July 27, 2014.
   Released into the public domain.
+    Version 1.1 - updated constants to suppport 3.3V
+    Version 1.6 - Support for ADS1015 in WeatherPiArduino Board February 7, 2015
 */
 
 #include "Arduino.h"
 
 #include <Time.h>
 #include "SDL_Weather_80422.h"
+
+
+#include "Adafruit_ADS1015.h"
+
+
+Adafruit_ADS1015 ads1015;
 
 
 
@@ -41,57 +49,61 @@ boolean fuzzyCompare(float compareValue, float value)
 float voltageToDegrees(float value, float defaultWindDirection)
 {
   
-  // Note:  The documenation for the wind vane says 16 positions.  Only recieve 8 positions.  And 370 degrees is wrong.
+  // Note:  The original documentation for the wind vane says 16 positions.  Typically only recieve 8 positions.  And 315 degrees was wrong.
   
-  if (fuzzyCompare(3.84, value))
+  // For 5V, use 1.0.  For 3.3V use 0.66
+#define ADJUST3OR5 0.66
+#define PowerVoltage 3.3
+
+  if (fuzzyCompare(3.84 * ADJUST3OR5 , value))
       return 0.0;
 
-  if (fuzzyCompare(1.98, value))
+  if (fuzzyCompare(1.98 * ADJUST3OR5, value))
       return 22.5;
 
-  if (fuzzyCompare(2.25, value))
+  if (fuzzyCompare(2.25 * ADJUST3OR5, value))
       return 45;
 
-  if (fuzzyCompare(0.41, value))
+  if (fuzzyCompare(0.41 * ADJUST3OR5, value))
       return 67.5;
 
-  if (fuzzyCompare(0.45, value))
+  if (fuzzyCompare(0.45 * ADJUST3OR5, value))
       return 90.0;
 
-  if (fuzzyCompare(0.32, value))
+  if (fuzzyCompare(0.32 * ADJUST3OR5, value))
       return 112.5;
 
-  if (fuzzyCompare(0.90, value))
+  if (fuzzyCompare(0.90 * ADJUST3OR5, value))
       return 135.0;
 
-  if (fuzzyCompare(0.62, value))
+  if (fuzzyCompare(0.62 * ADJUST3OR5, value))
       return 157.5;
 
-  if (fuzzyCompare(1.40, value))
+  if (fuzzyCompare(1.40 * ADJUST3OR5, value))
       return 180;
 
-  if (fuzzyCompare(1.19, value))
+  if (fuzzyCompare(1.19 * ADJUST3OR5, value))
       return 202.5;
 
-  if (fuzzyCompare(3.08, value))
+  if (fuzzyCompare(3.08 * ADJUST3OR5, value))
       return 225;
 
-  if (fuzzyCompare(2.93, value))
+  if (fuzzyCompare(2.93 * ADJUST3OR5, value))
       return 247.5;
 
-  if (fuzzyCompare(4.62, value))
+  if (fuzzyCompare(4.62 * ADJUST3OR5, value))
       return 270.0;
 
-  if (fuzzyCompare(4.04, value))
+  if (fuzzyCompare(4.04 * ADJUST3OR5, value))
       return 292.5;
 
-  if (fuzzyCompare(4.34, value))  // chart in documentation wrong
+  if (fuzzyCompare(4.34 * ADJUST3OR5, value))  // chart in documentation wrong
       return 315.0;
 
-  if (fuzzyCompare(3.43, value))
+  if (fuzzyCompare(3.43 * ADJUST3OR5, value))
       return 337.5;
       
-  Serial.print(" FAIL WIND DIRECTION");
+  //Serial.print(" FAIL WIND DIRECTION");
   return defaultWindDirection;  // return previous value if not found
   
   
@@ -162,6 +174,8 @@ void serviceInterruptRain()
 long SDL_Weather_80422::_currentWindCount =0;
 long SDL_Weather_80422::_currentRainCount =0;
 unsigned long SDL_Weather_80422::_shortestWindTime =0;
+
+
 SDL_Weather_80422::SDL_Weather_80422(int pinAnem, int pinRain, int intAnem, int intRain, int ADChannel, int ADMode)
 {
   //pinMode(pinAnem, INPUT);
@@ -172,6 +186,7 @@ SDL_Weather_80422::SDL_Weather_80422(int pinAnem, int pinRain, int intAnem, int 
   _intRain = intRain;
   _ADChannel = ADChannel;
   _ADMode = ADMode;
+
 
   _currentRainCount = 0;
   _currentWindCount = 0;
@@ -196,6 +211,10 @@ SDL_Weather_80422::SDL_Weather_80422(int pinAnem, int pinRain, int intAnem, int 
   digitalWrite(pinRain, HIGH);   // Configure internal pull-up resistor
   attachInterrupt(_intAnem, serviceInterruptAnem, RISING);
   attachInterrupt(_intRain, serviceInterruptRain, RISING);
+  
+  
+    if (_ADMode == SDL_MODE_I2C_ADS1015)
+        ads1015.begin();
 }
 
 
@@ -244,12 +263,13 @@ float SDL_Weather_80422::current_wind_direction()
 {
     float voltageValue;
     
-    float Vcc = 5.00;
+    float Vcc = PowerVoltage;
 
-    if (_ADMode == SDL_MODE_I2C_ADS105)
+    if (_ADMode == SDL_MODE_I2C_ADS1015)
     {
+      int value = ads1015.readADC_SingleEnded(1);   // AIN1 wired to wind vane on WeatherPiArduino
+      voltageValue = value*0.003f;
 
-      voltageValue = 0.0;
     }
     else
     {
@@ -263,6 +283,32 @@ float SDL_Weather_80422::current_wind_direction()
     float direction = voltageToDegrees(voltageValue, _currentWindDirection);
     
     return direction;
+}
+
+
+float SDL_Weather_80422::current_wind_direction_voltage()
+{
+    float voltageValue;
+    
+    float Vcc = PowerVoltage;
+
+    if (_ADMode == SDL_MODE_I2C_ADS1015)
+    {
+      int value = ads1015.readADC_SingleEnded(1);   // AIN1 wired to wind vane on WeatherPiArduino
+      voltageValue = value*0.003f;
+
+    }
+    else
+    {
+      // use internal A/D converter
+
+      voltageValue = (analogRead(_ADChannel)/1023.0)*Vcc;
+  
+            
+    }
+   
+        
+    return voltageValue;
 }
 
 void SDL_Weather_80422::reset_rain_total()
